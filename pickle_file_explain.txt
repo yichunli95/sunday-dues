@@ -1,0 +1,90 @@
+# train_shared => dict_keys(['albums', 'pid2feat', 'word2vec', 'charCounter', 'wordCounter'])
+# ablums is a dictionary of the form {album_id_0: {'title': xxx, 'when': xxx, ...}, album_id_1: {...}, ...}
+# pid2feat: pid2feat[pid] = args.images[pid]
+# word2vec is a dictionary of the form word2vec['word'] = representation in glove for every word in wordCounter
+# charCounter: a dictionary whose key is a character in question / answer choices / album title / album description / album where /
+# album when / photo title and value is the count of that character
+# wordCounter: a dictionary whose key is a word in question / answer choices / album title / album description / album where /
+# album when / photo title and value is the count of that word
+
+
+# train_data => dict_keys(['q', 'idxs', 'cy', 'ccs', 'qid', 'y', 'aid', 'cq', 'yidx', 'cs'])
+# q is the list of all questions
+# idxs is a list of increasing numbers as question ids [0, ..., len(question_ids)]
+# an element in cy is a list of list characters of an answer
+# an element in ccs is a list of list of characters for choices, except for the correct answer choice
+# y contains lists of tokenized answer
+# aid is a list of a lists of album ids (because there could be multiple album ids corresponding to 1 question) 
+# cq contains a list of lists of characters for questions
+# yidx is a list of index of answer in the 4 choices. For example: an element in yidx is 0 if the answer is A among the 4 choices
+# an element in cs is a list of tokenized choices, except for the correct answer choice
+# *i -> tokenized *, for example: qi for a given entry in qas.json is ["What", "is", "it"]
+# c*i -> characters of tokenized *, for example: cqi [['W', 'h', 'a', 't'], ['i', 's'], ['i', 't']]
+# how to construct qi, for example:
+# qi = word_tokenize(qa['question']) # no lower here
+#		cqi = [list(qij) for qij in qi] # convert each tokenized word to char array
+#		for qij in qi:
+#			word_counter[qij.lower()] += 1
+#			for qijk in qij:
+#				char_counter[qijk] += 1
+
+
+# each question has a multiple_choice_4 and a multiple_choice_20 as fields, where the 4-choice is a subset of 20-choice.
+
+# train_shared
+# dict_keys(['albums', 'pid2feat', 'word2vec', 'charCounter', 'wordCounter'])
+# ======
+# albums
+# 72157624526147656 {'photo_titles': [['Artistry'], ['That', 's', 'What', 'I', 'm', 'Talkin', 'About', '!'], ['Classic', 'Joy'], ['Let', 's', 'Go', '!'], ['All', 'My', 'Peeps'], ['How', 'to', 'Tie', 'a', 'Tie'], ['Dreamy'], ['Tier', 'Topper'], ['Newlyweds']], 'description': ['Canela', 'Thomas'], 'title': ['Springer', 'Wedding'], 'when': ['on', 'July', '17', '2010'], 'title_c': [['S', 'p', 'r', 'i', 'n', 'g', 'e', 'r'], ['W', 'e', 'd', 'd', 'i', 'n', 'g']], 'when_c': [['o', 'n'], ['J', 'u', 'l', 'y'], ['1', '7'], ['2', '0', '1', '0']], 'description_c': [['C', 'a', 'n', 'e', 'l', 'a'], ['T', 'h', 'o', 'm', 'a', 's']], 'photo_titles_c': [[['A', 'r', 't', 'i', 's', 't', 'r', 'y']], [['T', 'h', 'a', 't'], ['s'], ['W', 'h', 'a', 't'], ['I'], ['m'], ['T', 'a', 'l', 'k', 'i', 'n'], ['A', 'b', 'o', 'u', 't'], ['!']], [['C', 'l', 'a', 's', 's', 'i', 'c'], ['J', 'o', 'y']], [['L', 'e', 't'], ['s'], ['G', 'o'], ['!']], [['A', 'l', 'l'], ['M', 'y'], ['P', 'e', 'e', 'p', 's']], [['H', 'o', 'w'], ['t', 'o'], ['T', 'i', 'e'], ['a'], ['T', 'i', 'e']], [['D', 'r', 'e', 'a', 'm', 'y']], [['T', 'i', 'e', 'r'], ['T', 'o', 'p', 'p', 'e', 'r']], [['N', 'e', 'w', 'l', 'y', 'w', 'e', 'd', 's']]], 'where_c': [['O', 'r', 'e', 'g', 'o', 'n'], [','], ['9', '7', '0', '3', '1'], [','], ['U', 'S', 'A']], 'aid': '72157624526147656', 'where': ['Oregon', ',', '97031', ',', 'USA'], 'photo_ids': ['4991993086', '4992003256', '4991422197', '4803697491', '5451913227', '4991396493', '4991431197', '5451913041', '4804328112']}
+# 72157594432804198 {'photo_titles': [['jake', 'was', 'sick'], ['the', 'cake'], ['pose', 'of', 'the', 'night'], ['our', 'beautiful', 'blondes'], ['party', 'pooped'], ['besties', 'up'], ['show', 'and', 'tell'], ['guest', 'of', 'honor'], ['make', 'a', 'wish'], ['ho.ly.crap', '.']], 'description': ['Ringing', 'in', 'Lauren', 's', 'twenty', 'first', 'in', 'style', 'at', '124', '.', 'Stuffed', 'mushrooms', ',', 'beurre', 'blanc', 'say', 'it', 'right', ',', 'fancy', 'boys', 'and', 'Those', 'Three', 'Girls', '.', 'Beauty', 'and', 'the', 'best', 'cake', 'you', 'ever', 'had', '.', 'Oh', ',', 'and', 'wine', '.'], 'title': ['dress', 'up', 'for', 'lauren'], 'when': ['on', 'December', '12', '2006'], 'title_c': [['d', 'r', 'e', 's', 's'], ['u', 'p'], ['f', 'o', 'r'], ['l', 'a', 'u', 'r', 'e', 'n']], 'when_c': [['o', 'n'], ['D', 'e', 'c', 'e', 'm', 'b', 'e', 'r'], ['1', '2'], ['2', '0', '0', '6']], 'description_c': [['R', 'i', 'n', 'g', 'i', 'n', 'g'], ['i', 'n'], ['L', 'a', 'u', 'r', 'e', 'n'], ['s'], ['t', 'w', 'e', 'n', 't', 'y'], ['f', 'i', 'r', 's', 't'], ['i', 'n'], ['s', 't', 'y', 'l', 'e'], ['a', 't'], ['1', '2', '4'], ['.'], ['S', 't', 'u', 'f', 'f', 'e', 'd'], ['m', 'u', 's', 'h', 'r', 'o', 'o', 'm', 's'], [','], ['b', 'e', 'u', 'r', 'r', 'e'], ['b', 'l', 'a', 'n', 'c'], ['s', 'a', 'y'], ['i', 't'], ['r', 'i', 'g', 'h', 't'], [','], ['f', 'a', 'n', 'c', 'y'], ['b', 'o', 'y', 's'], ['a', 'n', 'd'], ['T', 'h', 'o', 's', 'e'], ['T', 'h', 'r', 'e', 'e'], ['G', 'i', 'r', 'l', 's'], ['.'], ['B', 'e', 'a', 'u', 't', 'y'], ['a', 'n', 'd'], ['t', 'h', 'e'], ['b', 'e', 's', 't'], ['c', 'a', 'k', 'e'], ['y', 'o', 'u'], ['e', 'v', 'e', 'r'], ['h', 'a', 'd'], ['.'], ['O', 'h'], [','], ['a', 'n', 'd'], ['w', 'i', 'n', 'e'], ['.']], 'photo_titles_c': [[['j', 'a', 'k', 'e'], ['w', 'a', 's'], ['s', 'i', 'c', 'k']], [['t', 'h', 'e'], ['c', 'a', 'k', 'e']], [['p', 'o', 's', 'e'], ['o', 'f'], ['t', 'h', 'e'], ['n', 'i', 'g', 'h', 't']], [['o', 'u', 'r'], ['b', 'e', 'a', 'u', 't', 'i', 'f', 'u', 'l'], ['b', 'l', 'o', 'n', 'd', 'e', 's']], [['p', 'a', 'r', 't', 'y'], ['p', 'o', 'o', 'p', 'e', 'd']], [['b', 'e', 's', 't', 'i', 'e', 's'], ['u', 'p']], [['s', 'h', 'o', 'w'], ['a', 'n', 'd'], ['t', 'e', 'l', 'l']], [['g', 'u', 'e', 's', 't'], ['o', 'f'], ['h', 'o', 'n', 'o', 'r']], [['m', 'a', 'k', 'e'], ['a'], ['w', 'i', 's', 'h']], [['h', 'o', '.', 'l', 'y', '.', 'c', 'r', 'a', 'p'], ['.']]], 'where_c': [['M', 'a', 's', 's', 'a', 'c', 'h', 'u', 's', 'e', 't', 't', 's'], [','], ['0', '2', '1', '4', '4'], [','], ['U', 'S', 'A']], 'aid': '72157594432804198', 'where': ['Massachusetts', ',', '02144', ',', 'USA'], 'photo_ids': ['329875573', '329880372', '329887194', '329884222', '329885626', '329885354', '329878373', '329879803', '329881002', '329881579']}
+# ======
+# pid2feat
+# 5739189334 [ 0.00172173  0.01439754  0.01845444 ... -0.01582283  0.01391866
+#   0.03722873]
+# 98470466 [ 0.01808485  0.00666316  0.01261599 ...  0.01905508 -0.01956198
+#   0.03107883]
+# ======
+# word2vec
+# bunnies [0.11807, 0.53954, 0.19281, -1.1163, -0.64627, 0.77547, 0.25252, 0.12237, -0.042409, 0.098084, 0.26205, 0.064045, 0.056376, 0.70651, 0.31484, 0.32384, 0.20381, 0.74665, -0.0033318, -0.5544, -0.36573, 0.27113, -0.22971, 0.035051, -0.019495, 0.72107, -0.43299, 0.34458, -0.90525, 0.13926, 0.0077031, -0.20367, 0.31363, 0.23442, 0.26507, 0.24293, 0.1474, 0.029565, -0.18983, -0.93685, -0.38295, 0.40937, -0.58884, -0.27712, -0.673, 0.35366, 0.22568, -0.08501, 0.67376, 0.43841, -0.48143, -0.54927, -0.25263, 0.48187, -0.42636, 0.18035, 0.69865, 0.56144, -0.35985, -0.12294, 0.35442, 1.1948, -0.27476, 0.019482, 0.50458, 0.17183, -0.034523, 0.24866, 0.68709, -0.84236, -0.59362, -0.54931, -0.32957, 0.30362, -0.51805, 0.21405, 0.87662, -0.17886, 0.43699, 0.51453, -0.17024, -0.25124, 0.50739, 0.82216, 0.26222, -0.55644, 0.48589, 0.10753, -0.034379, 0.12236, -0.26941, 0.24468, 0.41886, -0.54502, -0.51432, -1.4215, -0.35475, 0.3824, -0.75061, -0.33585]
+# raining [-0.39458, 0.08497, 0.099073, -0.31203, -0.58953, 0.80969, 0.37707, 0.17729, 0.22235, 0.13415, 0.86829, -0.55437, 0.89098, 0.3073, -0.74091, -0.61986, -0.64115, 0.40928, 0.52026, 0.44949, 0.4787, 0.94917, -0.37981, 0.28627, 0.074691, 1.2471, -0.34576, 0.099595, -0.14928, 0.085467, -0.364, -0.82378, 0.054261, 0.58611, -0.6896, -0.21623, 0.069447, -0.83181, 0.094426, -0.11922, -0.40939, 0.49115, -0.26798, 0.20758, 0.15797, -0.31368, -0.03023, 0.19791, -0.2027, -0.92734, 0.52862, 0.098314, 0.20218, 0.49458, -0.74931, -0.042779, 0.068105, 0.93177, 0.28681, -0.15383, 0.14813, 1.4138, -0.38884, 0.83986, -0.24212, 0.65998, 0.93162, -0.66189, -0.47323, -0.44962, -0.3625, -1.1195, 1.0522, -0.010383, -0.097204, -0.15843, 0.43744, 0.38003, -0.094791, 0.39758, 0.51956, 0.19279, -0.99856, 0.047053, 0.24721, -0.62869, 0.22173, -0.38449, -0.48447, 0.52734, -0.45092, 0.1325, -0.35043, 0.85987, -0.34692, -0.30717, -0.38162, 1.1747, -0.25989, 0.95241]
+# ======
+# charCounter
+# * 356
+# ‎ 116
+# ======
+# wordCounter
+# raining 108
+# dinghy 4
+# ======================
+# train_data
+# dict_keys(['q', 'idxs', 'cy', 'ccs', 'qid', 'y', 'aid', 'cq', 'yidx', 'cs'])
+# ======
+# q
+# [['Who', 'had', 'coffee', '?'], ['When', 'did', 'the', 'parade', 'take', 'place', '?']]
+# ======
+# idxs
+# [0, 1]
+# ======
+# cy
+# [[['N', 'e', 'd']], [['O', 'c', 't', 'o', 'b', 'e', 'r'], ['3', '0'], ['2', '0', '0', '4']]]
+# ======
+# ccs
+# [[[['E', 'x', 'c', 'a', 'v', 'a', 't', 'i', 'o', 'n'], ['c', 'r', 'e', 'w']], [['E', 'l', 'v', 'i', 's']], [['A'], ['c', 'h', 'i', 'l', 'd']]], [[['N', 'o', 'v', 'e', 'm', 'b', 'e', 'r'], ['2', '3'], ['2', '0', '0', '5']], [['O', 'c', 't', 'o', 'b', 'e', 'r'], ['2', '9'], ['2', '0', '0', '4']], [['N', 'o', 'v', 'e', 'm', 'b', 'e', 'r'], ['2', '5'], ['2', '0', '0', '4']]]]
+# ======
+# qid
+# ['170002', '170003']
+# ======
+# y
+# [['Ned'], ['October', '30', '2004']]
+# ======
+# aid (album ids)
+# [['29851'], ['29851', '29834', '43667', '59543', '145115', '1458195', '1735155', '72157594149372411']]
+# ======
+# cq
+# [[['W', 'h', 'o'], ['h', 'a', 'd'], ['c', 'o', 'f', 'f', 'e', 'e'], ['?']], [['W', 'h', 'e', 'n'], ['d', 'i', 'd'], ['t', 'h', 'e'], ['p', 'a', 'r', 'a', 'd', 'e'], ['t', 'a', 'k', 'e'], ['p', 'l', 'a', 'c', 'e'], ['?']]]
+# ======
+# yidx
+# [3, 3]
+# ======
+# cs (tokenized answer choices, except for the correct choice; that's why there are three elements in each list)
+# [[['Excavation', 'crew'], ['Elvis'], ['A', 'child']], [['November', '23', '2005'], ['October', '29', '2004'], ['November', '25', '2004']]]
