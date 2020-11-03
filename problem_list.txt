@@ -1,0 +1,6 @@
+1. photos that appear across multiple albums:
+   - how many are there percentage wise?
+   - if we remove duplicates during the dataset when getting image features in corresponding order, does that break the time sequence when feeding into the model?
+        e.g.: we have 2 albums for this question with the following pids: [1,2,3,4], [5,2,6,7]
+                - by removing duplicates, we finally feed into the model [1,2,3,4,5,6,7] instead of [1,2,3,4,5,2,6,7]
+   - does this matter?
