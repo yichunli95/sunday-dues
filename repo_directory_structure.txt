@@ -1,0 +1,17 @@
+sunday-dues/
+|- playground/
+|     |- pickle_file_explain.txt
+|     |- playground.py
+|
+|- prepro_v1.1/
+|     |- test_data.p
+|     |- test_shared.p
+|     |- train_data.p
+|     |- train_shared.p
+|     |- val_data.p
+|     |- val_shared.p
+|
+|- dataset.py
+|- problem_list.txt
+|- README.md
+|- repo_directory_structure.txt
