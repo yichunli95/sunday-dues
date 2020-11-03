@@ -10,3 +10,4 @@ class MemexQA(Dataset):
         return len(self.questions)
     
     def __getitem__(self, idx):
+        pass
