@@ -3,6 +3,7 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
+
 class MemexQA(Dataset):
     def __init__(self, data, shared):
         # self.data(xx_data) in original utils.py 
@@ -16,15 +17,14 @@ class MemexQA(Dataset):
     def __getitem__(self, idx):
         # returned_item: {'q': ..., 'idxs': ..., 'aid': [0,1,2], ... (fields in xx_data.p), 
         # 'album_title': [a0_title, a1_title, a2_title], 'album_when': [a0_when, a1_when, a2_when],
-        # ... (fields in xx_shared.p),}
+        # ... (fields in xx_shared.p 'albums'),}
         returned_item = {}
         
         # get fields from self.data
         #['q', 'idxs', 'cy', 'ccs', 'qid', 'y', 'aid', 'cq', 'yidx', 'cs']
         for k in self.data.keys():
             returned_item[k] = self.data[k][idx]
-        
-        
+
         # get fields from self.shared
         # dict_keys(['albums', 'pid2feat', 'word2vec', 'charCounter', 'wordCounter'])
         aid_list = returned_item['aid']
@@ -51,15 +51,11 @@ class MemexQA(Dataset):
         returned_item['photo_idxs'] = [[pid2idx[pid] for pid in pids] for pids in returned_item['photo_ids']]
         return returned_item
 
+
+
+
+
 if __name__ == '__main__':
     train_data = pd.read_pickle('prepro_v1.1/train_data.p')
     train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
     dataset = MemexQA(train_data, train_shared)
-    sample = dataset[9]
-    # print(sample['photo_ids'])
-    # l = 0
-    # for ls in sample['photo_ids']:
-    #     l += len(ls)
-    # print(l)
-    # print(sample['photo_idxs'])
-    # print(len(sample['photo_idxs']))
