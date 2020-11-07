@@ -7,6 +7,13 @@ from torch.utils.data import Dataset, DataLoader
 from collections import defaultdict
 from statistics import median
 
+train_data = pd.read_pickle('prepro_v1.1/train_data.p')
+train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
+q_lens = [len(q) for q in train_data['q']]
+cs_lens = [len(c) for cs in train_data['cs'] for c in cs]
+photos_lens = [sum(len(train_shared['albums'][aid]['photo_titles']) for aid in aid_list) for aid_list in train_data['aid']]
+pts_lens = [len(pt) for aid in train_shared['albums'] for pt in train_shared['albums'][aid]['photo_titles']]
+
 Q_THRES = int(median(q_lens))
   # 8
 CS_THRES = int(median(cs_lens))  # 1
@@ -14,7 +21,7 @@ PS_THRES = int(median(photos_lens)) # 9
 PTS_THRES = int(median(pts_lens)) # 3
 PTS_TOTAL_THRES = PTS_THRES * PS_THRES # 27
 
-class MemexQA(Dataset):
+class MemexQA_simple(Dataset):
     def __init__(self, data, shared):
         self.data = data
         self.shared = shared
@@ -89,8 +96,6 @@ class MemexQA(Dataset):
 
 
 if __name__ == '__main__':
-    train_data = pd.read_pickle('prepro_v1.1/train_data.p')
-    train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
 
     data = MemexQA(train_data, train_shared)
 
