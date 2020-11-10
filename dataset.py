@@ -10,13 +10,13 @@ from statistics import median
 train_data = pd.read_pickle('prepro_v1.1/train_data.p')
 train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
 q_lens = [len(q) for q in train_data['q']]
-cs_lens = [len(c) for cs in train_data['cs'] for c in cs]
+cs_lens = [[len(c) for c in cs] for cs in train_data['cs']]
 photos_lens = [sum(len(train_shared['albums'][aid]['photo_titles']) for aid in aid_list) for aid_list in train_data['aid']]
 pts_lens = [len(pt) for aid in train_shared['albums'] for pt in train_shared['albums'][aid]['photo_titles']]
 
 Q_THRES = int(median(q_lens))
   # 8
-CS_THRES = int(median(cs_lens))  # 1
+CS_THRES = int(median([cs_len for cs_lens_list in cs_lens for cs_len in cs_lens_list]))  # 1
 PS_THRES = int(median(photos_lens)) # 9
 PTS_THRES = int(median(pts_lens)) # 3
 PTS_TOTAL_THRES = PTS_THRES * PS_THRES # 27
@@ -35,12 +35,13 @@ class MemexQA_simple(Dataset):
         # question glove
         q = self.data['q'][idx]
         q_vec = torch.FloatTensor([self.shared['word2vec'][word.lower()] for word in q if word.lower() in self.shared['word2vec']])
+        len_q_vec = len(q_vec)
         if len(q_vec) < Q_THRES:
             q_vec = F.pad(q_vec, (0, 0, 0, Q_THRES - len(q_vec)))
         else:
             q_vec = q_vec[:Q_THRES]
         returned_item['q_vec'] = q_vec  # shape (8, 100)
-        
+        returned_item['q_len'] = [min(len_q_vec, Q_THRES)]
         # choices glove
         wrong_cs = self.data['cs'][idx]
         correct_c = self.data['y'][idx]
@@ -54,8 +55,10 @@ class MemexQA_simple(Dataset):
         else:  # yidx == 3
             cs = wrong_cs + [correct_c]
         cs_vec = torch.FloatTensor()
+        len_cs_vec = []
         for c in cs:
             c_vec = torch.FloatTensor([self.shared['word2vec'][word.lower()] for word in c if word.lower() in self.shared['word2vec']])
+            len_cs_vec.append(len(c_vec))
             if c_vec.nelement() == 0:
                 c_vec = torch.zeros((CS_THRES, 100))
             elif len(c_vec) < CS_THRES:
@@ -64,6 +67,7 @@ class MemexQA_simple(Dataset):
                 c_vec = c_vec[:CS_THRES]
             cs_vec = torch.cat((cs_vec, c_vec))
         returned_item['cs_vec'] = torch.unsqueeze(cs_vec, 1)  # since CS_THRES = 1 => shape (4, 1, 100)
+        returned_item['cs_lens'] = [min(cs_len, CS_THRES) for cs_len in len_cs_vec]
         
         # Caveat #1: photos belong to multiple albums
         # Caveat #2: currently concat all words
@@ -81,6 +85,7 @@ class MemexQA_simple(Dataset):
         else:
             pts_vec = pts_vec[:PTS_TOTAL_THRES]
         returned_item['pts_vec'] = pts_vec
+        returned_item['pts_len'] = [min(len(pts_vec), PTS_TOTAL_THRES)]
         
         # image features of photos
         pid_list = [pid for aid in aid_list for pid in self.shared['albums'][aid]['photo_ids']]
@@ -97,7 +102,7 @@ class MemexQA_simple(Dataset):
 
 if __name__ == '__main__':
 
-    data = MemexQA(train_data, train_shared)
+    data = MemexQA_simple(train_data, train_shared)
 
     for i in range(len(data)):
         X, y = data[i]
@@ -105,3 +110,7 @@ if __name__ == '__main__':
         assert X['cs_vec'].shape == (4, 1, 100)
         assert X['pts_vec'].shape == (27, 100)
         assert X['img_feats'].shape == (9, 2537)
+        print(q_lens[i], X['q_len'])
+        print(cs_lens[i], X['cs_lens'])
+        print(X['pts_len'])
+        break

@@ -3,20 +3,29 @@ import torch.nn as nn
 import torch
 from dataset import MemexQA_simple
 import pandas as pd
-from model import LinearModel
+from model import LinearModel, SimpleLSTMModel
 import time
-import os
+import numpy as np
 
 
 def main():
     cuda = torch.cuda.is_available()
     num_workers = 8 if cuda else 0
     batch_size = 20
+    # random initial embedding matrix for new words
     hyperparams = {'batch_size': 20, 'momentum': 1e-2, 'lr': 1e-2, 'lr_stepsize': 3, 'lr_decay': 0.85, 'weight_decay': 5e-6, 'epochs': 5}
+    train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
+    nonglove_dict = {word: np.random.normal(0, 1, 100) for word in train_shared['wordCounter'] if word not in train_shared['word2vec']}
+    train_shared['word2vec'].update(nonglove_dict)
 
-    train_data = MemexQA_simple(data=pd.read_pickle('prepro_v1.1/train_data.p'), shared=pd.read_pickle('prepro_v1.1/train_shared.p'))
+    train_data = MemexQA_simple(data=pd.read_pickle('prepro_v1.1/train_data.p'), shared=train_shared)
     valid_data = MemexQA_simple(data=pd.read_pickle('prepro_v1.1/val_data.p'), shared=pd.read_pickle('prepro_v1.1/val_shared.p'))
     test_data = MemexQA_simple(data=pd.read_pickle('prepro_v1.1/test_data.p'), shared=pd.read_pickle('prepro_v1.1/test_shared.p'))
+
+# random initial embedding matrix for new words
+# config.emb_mat = np.array([idx2vec_dict[idx] if idx2vec_dict.has_key(idx) 
+# else np.random.multivariate_normal(np.zeros(config.word_emb_size), np.eye(config.word_emb_size)) 
+# for idx in xrange(config.word_vocab_size)],dtype="float32") 
 
 
     train_loader_args = dict(shuffle=True, batch_size=batch_size, num_workers=num_workers, pin_memory=True) if cuda\
@@ -34,10 +43,9 @@ def main():
 
     # initialize model
     device = torch.device("cuda" if cuda else "cpu")
-    model = LinearModel(device)
+    model = SimpleLSTMModel(100, 32, hyperparams['batch_size'], 2, device)
 
     model.to(device)
-
 
     # setup optim and loss
 
@@ -51,7 +59,6 @@ def main():
     for i in range(hyperparams['epochs']):
         start = time.time()
         model.train()
-        loss = 0
         n_correct,n_total = 0, 0
         for (batch_data, batch_labels) in train_loader:
             optimizer.zero_grad()
