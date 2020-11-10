@@ -72,7 +72,7 @@ class SimpleLSTMModel(nn.Module):
             self.rnn_c = nn.LSTM(input_size, hidden_size, num_layers, batch_first = False, bidirectional = True)
             self.rnn_pt = nn.LSTM(input_size, hidden_size, num_layers, batch_first = False, bidirectional = True)
             self.rnn_ps = nn.LSTM(input_size, hidden_size, num_layers, batch_first = False, bidirectional = True)
-        self.output = nn.Linear(4 * num_layers * (2 if rnn_type == 'bilstm' else 1), 1)  # 4 * hidden size is the concatenated dim
+        self.output = nn.Linear(4 * num_layers * (2 if rnn_type == 'bilstm' else 1) * hidden_size, 1)  # 4 * hidden size is the concatenated dim
             
 
     def forward(self, X):
@@ -102,10 +102,14 @@ class SimpleLSTMModel(nn.Module):
         concat_vec = torch.FloatTensor().to(self.device)
         for i in range(4):
             vec_to_be_cat = torch.cat((lstm_output_q, lstm_output_ps, lstm_output_cs[i], lstm_output_pt), dim = 0) # 16, 10, 1
+            vec_to_be_cat = vec_to_be_cat.permute(1, 0, 2)
+            vec_to_be_cat = torch.flatten(vec_to_be_cat, 1, 2)
+            vec_to_be_cat = torch.unsqueeze(vec_to_be_cat, 1)
+            # we want concat_vec to have a final shape of N, 4, *
             print("vec_to_be_cat shape: ", vec_to_be_cat.shape)
-            concat_vec = torch.cat((concat_vec, vec_to_be_cat), dim = 2) # 16, 10, 4
-            print("concat_vec: ", concat_vec.shape)
-        concat_vec = concat_vec.permute(1, 2, 0)  # 10, 4, 16
+            concat_vec = torch.cat((concat_vec, vec_to_be_cat), dim = 1) # 16, 10, 4
+            print("vectobecat shape: ", vec_to_be_cat.shape)
+        print("concat_vec: ", concat_vec.shape)
         # for item in X:
         #     q_vec = torch.cat((q_vec, torch.unsqueeze(item['q_vec'], 0)), dim = 0)
         #     cs_vec = torch.cat((cs_vec, torch.unsqueeze(item['cs_vec'], 0)), dim = 0)
@@ -124,11 +128,12 @@ class SimpleLSTMModel(nn.Module):
             dataset.PTS_TOTAL_THRES + dataset.PS_THRES) * 100)), concat_vec.shape
         '''
         # len(X), 4, (dataset.Q_THRES + dataset.CS_THRES + dataset.PTS_TOTAL_THRES + dataset.PS_THRES)* 100
-        print("out before output layer: ", concat_vec.shape)
+#         print("out before output layer: ", concat_vec.shape)
+        #print("concat_vec: ", concat_vec.shape) 
         out = self.output(concat_vec)
         #assert out.shape == torch.Size((len(X['q_vec']), 4, 1)), out.shape
         out = out.squeeze(2)
-        print("out size ", out.shape)
+#         print("out size ", out.shape)
         #assert out.shape == torch.Size((len(X['q_vec']), 4))
         return out
 
@@ -136,16 +141,16 @@ class SimpleLSTMModel(nn.Module):
 if __name__ == '__main__':
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
-    model = SimpleLSTMModel(100, 1, 10, 2, device)
+    model = SimpleLSTMModel(100, 64, 7, 2, device)
     train_data = pd.read_pickle('prepro_v1.1/train_data.p')
     train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
     data = dataset.MemexQA_simple(train_data, train_shared)
-    print(len(data))
-    loader = torch.utils.data.DataLoader(data, batch_size = 10)
+#     print(len(data))
+    loader = torch.utils.data.DataLoader(data, batch_size = 7)
     for X, y in loader:
-        print(type(X))
+#         print(type(X))
         # print(X.keys())
         # print(len(X['q_vec']))
         # print(X['q_vec'][0].shape)
-        print(model(X))
+        print("output size: ", model(X).shape)
         break
