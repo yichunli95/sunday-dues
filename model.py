@@ -106,10 +106,10 @@ class SimpleLSTMModel(nn.Module):
             vec_to_be_cat = torch.flatten(vec_to_be_cat, 1, 2)
             vec_to_be_cat = torch.unsqueeze(vec_to_be_cat, 1)
             # we want concat_vec to have a final shape of N, 4, *
-            print("vec_to_be_cat shape: ", vec_to_be_cat.shape)
+#             print("vec_to_be_cat shape: ", vec_to_be_cat.shape)
             concat_vec = torch.cat((concat_vec, vec_to_be_cat), dim = 1) # 16, 10, 4
-            print("vectobecat shape: ", vec_to_be_cat.shape)
-        print("concat_vec: ", concat_vec.shape)
+#             print("vectobecat shape: ", vec_to_be_cat.shape)
+#         print("concat_vec: ", concat_vec.shape)
         # for item in X:
         #     q_vec = torch.cat((q_vec, torch.unsqueeze(item['q_vec'], 0)), dim = 0)
         #     cs_vec = torch.cat((cs_vec, torch.unsqueeze(item['cs_vec'], 0)), dim = 0)
@@ -152,5 +152,5 @@ if __name__ == '__main__':
         # print(X.keys())
         # print(len(X['q_vec']))
         # print(X['q_vec'][0].shape)
-        print("output size: ", model(X).shape)
+#         print("output size: ", model(X).shape)
         break
