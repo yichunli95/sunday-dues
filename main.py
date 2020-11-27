@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch
 from dataset import MemexQA_simple
 import pandas as pd
-from model import LinearModel, SimpleLSTMModel
+from model import LinearModel, SimpleLSTMModel, NewFusionModel
 import time
 import os
 import numpy as np
@@ -48,91 +48,100 @@ def main():
 
     # initialize model
     device = torch.device("cuda" if cuda else "cpu")
-#     model = SimpleLSTMModel(100, 128, hyperparams['batch_size'], 2, device)
-    model = LinearModel(device)
+    #model = SimpleLSTMModel(100, 64, hyperparams['batch_size'], 2, device)
+    # input_size, hidden_size, batch_size, num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride
+    model = NewFusionModel(100, 64, hyperparams['batch_size']//4, 2, device, 64, 64, 4, 3, 1)
     model.to(device)
 
     # setup optim and loss
 
     criterion = nn.CrossEntropyLoss()
-#     optimizer= optim.SGD(model.parameters(), momentum=hyperparams['momentum'], lr = hyperparams['lr'], weight_decay= hyperparams['weight_decay'])
-    optimizer = optim.Adam(model.parameters(), lr = hyperparams['lr'], weight_decay= hyperparams['weight_decay'])
+    #optimizer= optim.SGD(model.parameters(), momentum=hyperparams['momentum'], lr = hyperparams['lr'], weight_decay= hyperparams['weight_decay'])
+    optimizer= optim.Adam(model.parameters(), lr = hyperparams['lr'], weight_decay= hyperparams['weight_decay'])
+
     scheduler1 = optim.lr_scheduler.StepLR(optimizer, step_size=hyperparams['lr_stepsize'], gamma=hyperparams['lr_decay'])
 
     # start training
     print("Starting training phase......")
-    b_i = 0
+    #b_i = 0
+    avg_loss = 0
     for i in range(hyperparams['epochs']):
         start = time.time()
         model.train()
         n_correct,n_total = 0, 0
-        for (batch_data, batch_labels) in train_loader:
+        batch_count = 0
+        for j, (batch_data, batch_labels) in enumerate(train_loader):
+            if j == len(train_loader) - 1:
+                break
             optimizer.zero_grad()
 
             #batch_data = batch_data.to(device)
             #batch_labels = batch_labels.to(device)
 
             output = model(batch_data)
-            loss = criterion(output, batch_labels.long().cuda())
-#             print("shape out:", output.shape)
+            #loss = criterion(output, batch_labels.long().cuda())
+            loss = criterion(output, batch_labels.long().to(device))
+            #print("shape out:", output.shape)
             # train accuracy 
             res = torch.argmax(output, 1)
             res = res.to(device)
-            n_correct += (res == batch_labels.cuda()).sum().item()
+            #n_correct += (res == batch_labels.cuda()).sum().item()
+            n_correct += (res == batch_labels).sum().item()
             n_total += len(batch_data['q_vec'])
-
+            avg_loss += loss
+            batch_count += 1
             loss.backward()
             optimizer.step()
 
 
-            # validate and save model 
-            b_i += 1
-            # evaluate performance on validation set periodically
-            if b_i % hyperparams['valid_every'] == 0:
-                model.eval()
-                with torch.no_grad():
-                    losses = []
-                    valid_correct,valid_total, valid_loss = 0, 0, 0
-                    # validation for classification
-                    for (b_data, b_label) in valid_loader:
-#                         b_data = b_data.cuda()
-                        b_label = b_label.cuda()
-                        outp = model(b_data)
-                        resm = torch.argmax(outp, axis=1)
-                        resm = resm.to(device)
-                        correct = (resm == b_label).sum().item()
-                        valid_correct += correct
-                        valid_total += len(b_data['q_vec'])
-                        loss = criterion(outp, b_label.long())
-                        losses.append(loss)
-#                     if len(losses) == 1:
-#                         losses = losses[0]
-#                     else:
-#                         losses = torch.tensor(losses)
-                    valid_accu = valid_correct * 100/valid_total
-                    valid_loss = torch.mean(torch.tensor(losses))
-                    print(f"VALID ===> Epoch {i}, took time {time.time()-start:.1f}s, valid accu: {valid_accu:.4f}, valid loss: {valid_loss:.6f}")
-                model.train()
-            train_acc = n_correct * 100/n_total
-            
-#             print(f"TRAIN ===> Epoch {i}, took time {time.time()-start:.1f}s, train accu: {train_acc:.4f}, train loss: {loss:.6f}")
-#             print(f"predicted: {res},  actual: {batch_labels}")
-#         snapshot_prefix = os.path.join(os.getcwd(), 'snapshot_linear/')
-#         if(not os.path.exists(snapshot_prefix)):
-#             os.mkdir(snapshot_prefix)
-            
-        scheduler1.step()
-#         torch.save({
-#                     'model_state_dict': model.state_dict(),
-#                     'optimizer_label_state_dict': optimizer.state_dict(),
-#                     'scheduler1_state_dict' : scheduler1.state_dict()
-#         }, snapshot_prefix + "Model_"+str(i))
+            # # validate and save model 
+            # b_i += 1
+            # # evaluate performance on validation set periodically
+            # if b_i % hyperparams['valid_every'] == 0:
+            #     model.eval()
+            #     with torch.no_grad():
+            #         losses = []
+            #         valid_correct, valid_loss = 0, 0
+            #         # validation for classification
+            #         for (b_data, b_label) in valid_loader:
+            #             b_data = b_data.to(device)
+            #             b_label = b_label.to(device)
+            #             feat, outp = model(b_data)
+            #             resm = torch.argmax(outp, axis=1)
+            #             resm = resm.to(device)
+            #             correct = (resm == b_label).sum().item()
+            #             valid_correct += correct
+            #             loss = criterion(outp, b_label.long())
+            #             losses.append(lo)
+            #         if len(losses) == 1:
+            #             losses = losses[0]
+            #         else:
+            #             losses = torch.tensor(losses)
+            #         valid_accu = valid_correct / len(valid_labels)
+            #         valid_loss = torch.mean(losses)
+            #         print(f"VALID ===> Epoch {i}, took time {time.time()-start:.1f}s, valid accu: {valid_accu:.4f}, valid loss: {valid_loss:.6f}")
+            #     model.train()
+        train_acc = n_correct * 100/n_total
+        avg_loss = avg_loss / batch_count
         print(f"TRAIN ===> Epoch {i}, took time {time.time()-start:.1f}s, train accu: {train_acc:.4f}, train loss: {loss:.6f}")
-#     final_model_prefix = os.path.join(os.getcwd(), 'final_linear/')
-#     if(not os.path.exists(final_model_prefix)):
-#         os.mkdir(final_model_prefix)
-#     final_path = final_model_prefix + 'final_model.pt'
-#     torch.save(model, final_path)
+        #print(f"predicted: {res},  actual: {batch_labels}")
+        
+    #     snapshot_prefix = os.path.join(os.getcwd(), 'snapshot/')
+    #     if(not os.path.exists(snapshot_prefix)):
+    #         os.mkdir(snapshot_prefix)
+            
+    #     scheduler1.step()
+    #     torch.save({
+    #                 'model_state_dict': model.state_dict(),
+    #                 'optimizer_label_state_dict': optimizer.state_dict(),
+    #                 'scheduler1_state_dict' : scheduler1.state_dict()
+    #     }, snapshot_prefix + "Model_"+str(i))
+    #     #print(f"TRAIN ===> Epoch {i}, took time {time.time()-start:.1f}s, train accu: {train_acc:.4f}, train loss: {loss:.6f}")
+    # final_model_prefix = os.path.join(os.getcwd(), 'final/')
+    # if(not os.path.exists(final_model_prefix)):
+    #     os.mkdir(final_model_prefix)
+    # final_path = final_model_prefix + 'final_model.pt'
+    # torch.save(model, final_path)
 
 
     # predict
