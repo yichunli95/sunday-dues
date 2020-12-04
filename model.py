@@ -4,10 +4,15 @@ from torch.nn.utils.rnn import *
 import dataset
 import pandas as pd
 
-# replace the following in SimpleLSTM:
-# - img_feats_reshape (nn.Linear) is replaced with a dynamic parameter layer whose weights
-# are determined based on question features (https://arxiv.org/abs/1511.05756)
-# - concat_vector is replaced with a fusion CNN layer (https://arxiv.org/abs/1511.05756)
+# crossEntropyLoss use ignore_index = 0
+
+
+# dims fed into LSTM: seq_len, batch_size, input_size
+# B, T, F
+# q_vec -> B, T, 100 (glove embedding)
+# cs_vec -> B, 4, T = Y_THRES, 100
+# desc_vec(prev. pt) -> B, T = all_photo_titles_albums * 40, 100
+# ps_vec -> B, T = num_of_albums * 3, 2537
 class NewFusionModel(nn.Module):
     def __init__(self, input_size, hidden_size, batch_size, num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride, rnn_type = 'bilstm'):
         super(NewFusionModel, self).__init__()
@@ -24,10 +29,106 @@ class NewFusionModel(nn.Module):
         self.num_layers = num_layers
 
         if (rnn_type == 'bilstm'):
-            self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True)
-            self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True)
-            self.rnn_pt = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True)
-            self.rnn_ps = nn.LSTM(2537, hidden_size, self.num_layers, batch_first = False, bidirectional = True)
+            self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # questions
+            self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # choices
+            self.rnn_desc = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # photo titles
+            self.rnn_ps = nn.LSTM(2537, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # image features
+        else:
+            self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_desc = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_ps = nn.LSTM(2537, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+
+        self.img_linear = nn.Linear(hidden_size, self.img_linear_size) 
+        self.q_linear = nn.Linear(hidden_size, self.q_linear_size)
+
+        self.multimodal_cnn = nn.Conv1d(self.num_directions * self.num_layers, self.multimodal_out, self.kernel, self.stride)
+        # 2 * hidden_size if not passing in rnn_q hidden output, 3 * hidden_size if passing in 
+        multimodal_cnn_in_size = 2 * hidden_size + self.num_layers * self.num_directions * batch_size * q_linear_size // self.img_linear_size
+        multimodal_cnn_out_size = (multimodal_cnn_in_size - self.kernel) // self.stride + 1
+        self.output = nn.Linear(self.multimodal_out * multimodal_cnn_out_size, 1)
+    
+    def forward(self, X):
+        # X is a list of dictionaries: 'q_vec', 'cs_vec', 'desc_vec', 'img_feats'
+        # BATCH_SIZE = len(X)
+        # B, T, F
+        # q_vec -> B, T, 100 (glove embedding)
+        # cs_vec -> B, 4, T=Y_THRES, 100
+        # desc_vec(prev. pt) -> B, T=all_photo_titles_albums * 40, 100
+        # img_feats -> B, T=num_of_albums * 3, 2537
+
+
+        q_vec = pad_sequence(X['q_vec'], batch_first=False, padding_value=0).to(self.device)  # question 
+        cs_vec = pad_sequence(X['cs_vec'].permute(0,2,1,3), batch_first = False, padding_value=0).to(self.device) # 4 choices T, B, 4, 100
+        desc_vec = pad_sequence(X['desc_vec'], batch_first=False, padding_value=0).to(self.device) 
+        img_feats = pad_sequence(X['img_feats'], batch_first=False, padding_value=0).to(self.device)
+
+        packed_q_vec = pack_padded_sequence(q_vec, X['q_len'][0], batch_first=False, enforce_sorted = False)
+        packed_c1_vec = pack_padded_sequence(cs_vec[:, :, 0, :], X['cs_lens'][0], batch_first = False, enforce_sorted = False)
+        packed_c2_vec = pack_padded_sequence(cs_vec[:, :, 1, :], X['cs_lens'][1], batch_first = False, enforce_sorted = False)
+        packed_c3_vec = pack_padded_sequence(cs_vec[:, :, 2, :], X['cs_lens'][2], batch_first = False, enforce_sorted = False)
+        packed_c4_vec = pack_padded_sequence(cs_vec[:, :, 3, :], X['cs_lens'][3], batch_first = False, enforce_sorted = False)
+        packed_pt_vec = pack_padded_sequence(desc_vec, X['pts_len'][0], batch_first = False, enforce_sorted = False)
+        #img_feats = img_feats.permute(1,0,2)  # batch_size, seq_len, input_size -> seq_len, batch_size, input_size
+        
+        print("packed_c1_vec: ", packed_c1_vec.data.shape)
+        # hidden dims: num_layers * num_directions, batch_size, hidden_size
+        _, (lstm_hidden_q, __) = self.rnn_q(packed_q_vec)
+        _, (lstm_hidden_c1, __) = self.rnn_c(packed_c1_vec)
+        _, (lstm_hidden_c2, __) = self.rnn_c(packed_c2_vec)
+        _, (lstm_hidden_c3, __) = self.rnn_c(packed_c3_vec)
+        _, (lstm_hidden_c4, __) = self.rnn_c(packed_c4_vec)
+        _, (lstm_hidden_pt, __) = self.rnn_desc(packed_pt_vec)
+        _, (lstm_hidden_ps, __) = self.rnn_ps(img_feats)
+        lstm_hidden_cs = [lstm_hidden_c1, lstm_hidden_c2, lstm_hidden_c3, lstm_hidden_c4]
+        
+        candidate_weights = self.q_linear(lstm_hidden_q) # output: (num_direction * num_layers, batch_size, self.q_linear_size)
+        img_feats = self.img_linear(lstm_hidden_ps) # output: (num_direction * num_layers, batch_size, hidden_size)
+        # dyanmic parameter layer
+        dynamic_parameter_out = self.num_directions * self.num_layers * self.batch_size * self.q_linear_size // self.img_linear_size
+        dynamic_parameter_matrix = torch.flatten(candidate_weights)[:self.img_linear_size * dynamic_parameter_out]
+        dynamic_parameter_matrix = dynamic_parameter_matrix.reshape(self.img_linear_size, dynamic_parameter_out)
+        q_img_fused = img_feats @ dynamic_parameter_matrix
+
+        # multimodal cnn layer
+        cnn_out_list = []
+        for i in range(4):
+            vec = torch.cat((q_img_fused, lstm_hidden_cs[i], lstm_hidden_pt), dim = 2).to(self.device) 
+            vec = vec.permute(1, 0, 2) # batch_size, num_direction * num_layers, 2 * hidden + dynamic_parameter_out
+            vec = self.multimodal_cnn(vec)
+            cnn_out_list.append(vec)
+        for i in range(4):
+            cnn_out_list[i] = torch.flatten(cnn_out_list[i], start_dim = 1).unsqueeze(1)
+        classification_input = torch.cat(cnn_out_list, dim = 1) # (batch_size, 4, out_ch * cnn_out)
+        logits = self.output(classification_input)
+        return logits.squeeze(2)
+
+
+# FusionModel with old dataset
+# replace the following in SimpleLSTM:
+# - img_feats_reshape (nn.Linear) is replaced with a dynamic parameter layer whose weights
+# are determined based on question features (https://arxiv.org/abs/1511.05756)
+# - concat_vector is replaced with a fusion CNN layer (https://arxiv.org/abs/1511.05756)
+class OldFusionModel(nn.Module):
+    def __init__(self, input_size, hidden_size, batch_size, num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride, rnn_type = 'bilstm'):
+        super(OldFusionModel, self).__init__()
+        self.device = device
+        self.hidden_size = hidden_size
+        self.batch_size = batch_size
+        self.input_size = input_size         
+        self.q_linear_size = q_linear_size # s1
+        self.img_linear_size = img_linear_size # s2
+        self.num_directions = 2 if rnn_type == 'bilstm' else 1
+        self.multimodal_out = multimodal_out
+        self.kernel = kernel
+        self.stride = stride
+        self.num_layers = num_layers
+
+        if (rnn_type == 'bilstm'):
+            self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # questions
+            self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # choices
+            self.rnn_pt = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # photo titles
+            self.rnn_ps = nn.LSTM(2537, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # image features
         else:
             self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
             self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
