@@ -11,15 +11,18 @@ import pandas as pd
 # B, T, F
 # q_vec -> B, T, 100 (glove embedding)
 # cs_vec -> B, 4, T = Y_THRES, 100
-# desc_vec(prev. pt) -> B, T = all_photo_titles_albums * 40, 100
+# desc_vec(prev. pt) -> B, T = all_photo_titles_albums * DESC_THRESH, 100
 # ps_vec -> B, T = num_of_albums * 3, 2537
 class NewFusionModel(nn.Module):
-    def __init__(self, input_size, hidden_size, batch_size, num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride, rnn_type = 'bilstm'):
+    def __init__(self, q_cs_input_size,desc_input_size, img_input_size, hidden_size, batch_size,
+                num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride, rnn_type = 'bilstm'):
         super(NewFusionModel, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
         self.batch_size = batch_size
-        self.input_size = input_size         
+        self.q_cs_input_size = q_cs_input_size   #input_size qvec and cs_vec
+        self.desc_input_size = desc_input_size
+        self.img_input_size = img_input_size
         self.q_linear_size = q_linear_size # s1
         self.img_linear_size = img_linear_size # s2
         self.num_directions = 2 if rnn_type == 'bilstm' else 1
@@ -29,15 +32,15 @@ class NewFusionModel(nn.Module):
         self.num_layers = num_layers
 
         if (rnn_type == 'bilstm'):
-            self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # questions
-            self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # choices
-            self.rnn_desc = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # photo titles
-            self.rnn_ps = nn.LSTM(2537, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # image features
+            self.rnn_q = nn.LSTM(q_cs_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # questions
+            self.rnn_c = nn.LSTM(q_cs_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # choices
+            self.rnn_desc = nn.LSTM(desc_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # photo titles
+            self.rnn_ps = nn.LSTM(img_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = True) # image features
         else:
-            self.rnn_q = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
-            self.rnn_c = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
-            self.rnn_desc = nn.LSTM(input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
-            self.rnn_ps = nn.LSTM(2537, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_q = nn.LSTM(q_cs_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_c = nn.LSTM(q_cs_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_desc = nn.LSTM(desc_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
+            self.rnn_ps = nn.LSTM(img_input_size, hidden_size, self.num_layers, batch_first = False, bidirectional = False)
 
         self.img_linear = nn.Linear(hidden_size, self.img_linear_size) 
         self.q_linear = nn.Linear(hidden_size, self.q_linear_size)
