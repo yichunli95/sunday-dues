@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import torch
+from torch.nn.utils.rnn import *
 from torch.utils.data import Dataset
 import itertools
 
@@ -26,6 +27,35 @@ PHOTOS_PER_ALBUM = int(np.percentile(photo_lens, 90)) # 10
 ALBUM_TITLE_THRES = int(np.percentile(album_title_lens, 90)) # 8
 ALBUM_DESC_THRES = int(np.percentile(album_desc_lens, 50)) # 11
 
+def train_collate(batch):
+    print("batch type: ", type(batch))
+    print("batch: ", batch[0])
+    X, Y = zip(*batch)
+
+    print("X: ", type(X[0]), type(X[1]))
+    q_vec = []
+    cs_vec = []
+    desc_vec = []
+    img_feats = []
+    q_len = []
+    cs_len = []
+    desc_len = []
+    img_len = []
+    for x in X:
+      q_len.append(torch.LongTensor([len(x['q_len']) for x in X])
+      cs_len.append(torch.LongTensor([len(x['cs_lens']) for x in X])
+      desc_len.append(torch.LongTensor([len(x['desc_len']) for x in X])
+      img_len.append(torch.LongTensor([len(x['img_len']) for x in X])
+      q_vec.append(x['q_vec'])
+      cs_vec.append(x['cs_vec'])
+      desc_vec.append(x['desc_vec'])
+      img_feats.append(x['img_feats'])
+
+    X['q_vec'] = pad_sequence(q_vec, batch_first=False, padding_value=0).to(self.device)  # question 
+    X['cs_vec'] = pad_sequence(cs_vec.permute(0,2,1,3), batch_first = False, padding_value=0).to(self.device) # 4 choices T, B, 4, 100
+    X['desc_vec'] = pad_sequence(desc_vec, batch_first=False, padding_value=0).to(self.device) 
+    X['img_feats'] = pad_sequence(img_feats, batch_first=False, padding_value=0).to(self.device)
+    return X, Y
 
 class MemexQA_new(Dataset):
     def __init__(self, data, shared):
@@ -46,7 +76,7 @@ class MemexQA_new(Dataset):
             [self.shared['word2vec'][word.lower()] if word.lower() in self.shared['word2vec'] else [0] * 100 for word in
              q])
         returned_item['q_vec'] = q_vec[:Q_THRES]  # largest possible shape: Q_THRES * 100
-
+        returned_item['q_len'] = q_vec.shape[0] 
         # choices glove
         wrong_cs = self.data['cs'][idx]
         correct_c = self.data['y'][idx]
@@ -64,7 +94,9 @@ class MemexQA_new(Dataset):
             [self.shared['word2vec'][word.lower()] if word.lower() in self.shared['word2vec'] else [0] * 100 for word in
              c] for c in cs]
         cs_vec = [torch.FloatTensor(c[:Y_THRES]) for c in cs_vec]
+        cs_lens = [min(Y_THRES, len(each)) for each in cs_vec] #YTHRES
         returned_item['cs_vec'] = cs_vec  # [c1, c2, c3, c4]; largest possible shape: 4, Y_THRES, 100
+        returned_item['cs_lens'] = cs_lens
 
         # aid: description + title , aid:when , aid : photo_titles + {later ->( photo_captions  + photo tags )}
         aid_list = self.data['aid'][idx]
@@ -99,8 +131,9 @@ class MemexQA_new(Dataset):
         desc_vec = torch.FloatTensor(pts_descs).view(-1,
                                                      total_cat_len * 100)  # total number of photos (varies), total_cat_len * 100
         returned_item['desc_vec'] = desc_vec
-
+        returned_item['desc_len'] = desc_vec.shape[0]
         img_feats_vec = torch.FloatTensor(
             pid_features)  # total number of photos (varies), 2537; NEWLY CHANGED (no matter what, it will vary; keep consistent with desc_vec)
         returned_item['img_feats'] = img_feats_vec
+        returned_item['img_len'] = img_feats_vec.shape[0]
         return returned_item, yidx

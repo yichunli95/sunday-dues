@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import *
-import dataset
+import new_dataset_checked_by_hongyuan
 import pandas as pd
 
 # crossEntropyLoss use ignore_index = 0
@@ -14,8 +14,8 @@ import pandas as pd
 # desc_vec(prev. pt) -> B, T = all_photo_titles_albums * DESC_THRESH, 100
 # ps_vec -> B, T = num_of_albums * 3, 2537
 class NewFusionModel(nn.Module):
-    def __init__(self, q_cs_input_size,desc_input_size, img_input_size, hidden_size, batch_size,
-                num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride, rnn_type = 'bilstm'):
+    def __init__(self, q_cs_input_size, desc_input_size, img_input_size, hidden_size, batch_size,
+                num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride = 1, rnn_type = 'bilstm'):
         super(NewFusionModel, self).__init__()
         self.device = device
         self.hidden_size = hidden_size
@@ -331,17 +331,15 @@ if __name__ == '__main__':
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
     #model = SimpleLSTMModel(100, 64, 7, 2, device)
-    # input_size, hidden_size, batch_size, num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride
-    model = NewFusionModel(100, 64, 64, 2, device, 64, 64, 4, 3, 1)
+  #  q_cs_input_size, desc_input_size, img_input_size, hidden_size, batch_size,
+  # num_layers, device, q_linear_size, img_linear_size, multimodal_out, kernel, stride = 1, rnn_type = 'bilstm'
+    model = NewFusionModel(100, 3100,2537,128, 2, 2, device, 64, 64, 4, 3, 1)
     train_data = pd.read_pickle('prepro_v1.1/train_data.p')
     train_shared = pd.read_pickle('prepro_v1.1/train_shared.p')
-    data = dataset.MemexQA_simple(train_data, train_shared)
+    data = new_dataset_checked_by_hongyuan.MemexQA_new(train_data, train_shared)
 #     print(len(data))
-    loader = torch.utils.data.DataLoader(data, batch_size = 64)
+    loader = torch.utils.data.DataLoader(data, batch_size = 2, collate_fn = new_dataset_checked_by_hongyuan.train_collate )
     for X, y in loader:
-#         print(type(X))
-        # print(X.keys())
-        # print(len(X['q_vec']))
-        # print(X['q_vec'][0].shape)
-#         print("output size: ", model(X).shape)
+        print("X shape: ", X.shape)
+        out = model(X)
         break
