@@ -61,29 +61,32 @@ class NewFusionModel(nn.Module):
         # img_feats -> B, T=num_of_albums * 3, 2537
 
 
-        q_vec = pad_sequence(X['q_vec'], batch_first=False, padding_value=0).to(self.device)  # question 
-        cs_vec = pad_sequence(X['cs_vec'].permute(0,2,1,3), batch_first = False, padding_value=0).to(self.device) # 4 choices T, B, 4, 100
-        desc_vec = pad_sequence(X['desc_vec'], batch_first=False, padding_value=0).to(self.device) 
-        img_feats = pad_sequence(X['img_feats'], batch_first=False, padding_value=0).to(self.device)
+        # q_vec = pad_sequence(X['q_vec'], batch_first=False, padding_value=0).to(self.device)  # question 
+        # cs_vec = pad_sequence(X['cs_vec'].permute(0,2,1,3), batch_first = False, padding_value=0).to(self.device) # 4 choices T, B, 4, 100
+        # desc_vec = pad_sequence(X['desc_vec'], batch_first=False, padding_value=0).to(self.device) 
+        # img_feats = pad_sequence(X['img_feats'], batch_first=False, padding_value=0).to(self.device)
+        q_vec = X['q_vec']
+        cs_vec = X['cs_vec']
+        desc_vec = X['desc_vec']
 
-        packed_q_vec = pack_padded_sequence(q_vec, X['q_len'][0], batch_first=False, enforce_sorted = False)
-        packed_c1_vec = pack_padded_sequence(cs_vec[:, :, 0, :], X['cs_lens'][0], batch_first = False, enforce_sorted = False)
-        packed_c2_vec = pack_padded_sequence(cs_vec[:, :, 1, :], X['cs_lens'][1], batch_first = False, enforce_sorted = False)
-        packed_c3_vec = pack_padded_sequence(cs_vec[:, :, 2, :], X['cs_lens'][2], batch_first = False, enforce_sorted = False)
-        packed_c4_vec = pack_padded_sequence(cs_vec[:, :, 3, :], X['cs_lens'][3], batch_first = False, enforce_sorted = False)
-        packed_pt_vec = pack_padded_sequence(desc_vec, X['pts_len'][0], batch_first = False, enforce_sorted = False)
+        packed_q_vec = pack_padded_sequence(q_vec, X['q_len'], batch_first=False, enforce_sorted = False)
+        packed_c0_vec = pack_padded_sequence(cs_vec[:, :, 0, :], X['cs0_lens'], batch_first = False, enforce_sorted = False)
+        packed_c1_vec = pack_padded_sequence(cs_vec[:, :, 1, :], X['cs1_lens'], batch_first = False, enforce_sorted = False)
+        packed_c2_vec = pack_padded_sequence(cs_vec[:, :, 2, :], X['cs2_lens'], batch_first = False, enforce_sorted = False)
+        packed_c3_vec = pack_padded_sequence(cs_vec[:, :, 3, :], X['cs3_lens'], batch_first = False, enforce_sorted = False)
+        packed_pt_vec = pack_padded_sequence(desc_vec, X['desc_len'], batch_first = False, enforce_sorted = False)
         #img_feats = img_feats.permute(1,0,2)  # batch_size, seq_len, input_size -> seq_len, batch_size, input_size
         
-        print("packed_c1_vec: ", packed_c1_vec.data.shape)
+        #print("packed_c1_vec: ", packed_c1_vec.data.shape)
         # hidden dims: num_layers * num_directions, batch_size, hidden_size
         _, (lstm_hidden_q, __) = self.rnn_q(packed_q_vec)
+        _, (lstm_hidden_c0, __) = self.rnn_c(packed_c0_vec)
         _, (lstm_hidden_c1, __) = self.rnn_c(packed_c1_vec)
         _, (lstm_hidden_c2, __) = self.rnn_c(packed_c2_vec)
         _, (lstm_hidden_c3, __) = self.rnn_c(packed_c3_vec)
-        _, (lstm_hidden_c4, __) = self.rnn_c(packed_c4_vec)
         _, (lstm_hidden_pt, __) = self.rnn_desc(packed_pt_vec)
         _, (lstm_hidden_ps, __) = self.rnn_ps(img_feats)
-        lstm_hidden_cs = [lstm_hidden_c1, lstm_hidden_c2, lstm_hidden_c3, lstm_hidden_c4]
+        lstm_hidden_cs = [lstm_hidden_c0, lstm_hidden_c1, lstm_hidden_c2, lstm_hidden_c3]
         
         candidate_weights = self.q_linear(lstm_hidden_q) # output: (num_direction * num_layers, batch_size, self.q_linear_size)
         img_feats = self.img_linear(lstm_hidden_ps) # output: (num_direction * num_layers, batch_size, hidden_size)
@@ -229,7 +232,7 @@ class SimpleLSTMModel(nn.Module):
         img_feats = self.img_feats_reshape(img_feats) # image_feats (BATCH_SIZE, 9, 2537) -> (BATCH_SIZE, 9, 100) 
         q_vec = X['q_vec'].to(self.device)  # question (BATCH_SIZE, 8, 100)
         cs_vec = X['cs_vec'].to(self.device) # 4 choices (BATCH_SIZE, 4, 1, 100)
-        pts_vec = X['pts_vec'].to(self.device) # photo titles (BATCH_SIZE, 27, 100)
+        desc_vec = X['desc_vec'].to(self.device) # photo titles (BATCH_SIZE, 27, 100)
         packed_q_vec = pack_padded_sequence(q_vec, X['q_len'][0], batch_first = True, enforce_sorted = False)
         packed_c1_vec = pack_padded_sequence(cs_vec[:, 0, :, :], X['cs_lens'][0], batch_first = True, enforce_sorted = False)
         packed_c2_vec = pack_padded_sequence(cs_vec[:, 1, :, :], X['cs_lens'][1], batch_first = True, enforce_sorted = False)

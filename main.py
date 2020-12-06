@@ -1,7 +1,7 @@
 import torch.optim as optim
 import torch.nn as nn
 import torch
-from new_dataset import MemexQA_new
+from new_dataset_checked_by_hongyuan import MemexQA_new
 import pandas as pd
 from model import LinearModel, SimpleLSTMModel, NewFusionModel
 import time
@@ -46,25 +46,25 @@ def main(train_data_pth, train_shared_pth, val_data_pth, val_shared_pth, test_da
     # train_data = MemexQA_new(data=pd.read_pickle('prepro_v1.1/train_data.p'), shared=train_shared, info=None)
     # valid_data = MemexQA_new(data=pd.read_pickle('prepro_v1.1/val_data.p'), shared=val_shared, info=None)
     # test_data = MemexQA_new(data=pd.read_pickle('prepro_v1.1/test_data.p'), shared=test_shared, info=None)
-    train_data = MemexQA_new(data=pd.read_pickle(train_data_pth), shared=train_shared, info=None)
-    valid_data = MemexQA_new(data=pd.read_pickle(val_data_pth), shared=val_shared, info=None)
-    test_data = MemexQA_new(data=pd.read_pickle(test_data_pth), shared=test_shared, info=None)
+    train_data = MemexQA_new(data=pd.read_pickle(train_data_pth), shared=train_shared)
+    valid_data = MemexQA_new(data=pd.read_pickle(val_data_pth), shared=val_shared)
+    test_data = MemexQA_new(data=pd.read_pickle(test_data_pth), shared=test_shared)
 
     # random initial embedding matrix for new words
     # config.emb_mat = np.array([idx2vec_dict[idx] if idx2vec_dict.has_key(idx) 
     # else np.random.multivariate_normal(np.zeros(config.word_emb_size), np.eye(config.word_emb_size)) 
     # for idx in xrange(config.word_vocab_size)],dtype="float32") 
 
-    train_loader_args = dict(shuffle=True, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True) if cuda\
-        else dict(shuffle=True, batch_size=BATCH_SIZE)
+    train_loader_args = dict(shuffle=True, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True, collate_fn=train_collate) if cuda\
+        else dict(shuffle=True, batch_size=BATCH_SIZE, collate_fn=train_collate)
     train_loader = torch.utils.data.DataLoader(train_data, **train_loader_args)
 
-    valid_loader_args = dict(batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True) if cuda\
-        else dict(shuffle=False, batch_size=BATCH_SIZE)
+    valid_loader_args = dict(batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True, collate_fn=train_collate) if cuda\
+        else dict(shuffle=False, batch_size=BATCH_SIZE, collate_fn=train_collate)
     valid_loader = torch.utils.data.DataLoader(valid_data, **valid_loader_args)
 
-    test_loader_args = dict(batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True) if cuda\
-        else dict(shuffle=False, batch_size=BATCH_SIZE)
+    test_loader_args = dict(batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True, collate_fn=train_collate) if cuda\
+        else dict(shuffle=False, batch_size=BATCH_SIZE, collate_fn=train_collate)
     test_loader = torch.utils.data.DataLoader(test_data, **test_loader_args)
     print(f"Loading data took {time.time() - start:.1f} seconds")
     
@@ -158,23 +158,30 @@ def main(train_data_pth, train_shared_pth, val_data_pth, val_shared_pth, test_da
                                                     
     
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Get the train-val-test dataset files')
+    main('prepro_v1.1/train_data.p',
+        'prepro_v1.1/train_shared.p',
+        'prepro_v1.1/val_data.p',
+        'prepro_v1.1/val_shared.p',
+        'prepro_v1.1/test_data.p',
+        'prepro_v1.1/test_shared.p',
+        isTrain = True)
+    # parser = argparse.ArgumentParser(description='Get the train-val-test dataset files')
     
-    parser.add_argument("-td" , "--train_data_pth", help="Enter train data path", type=str)
-    parser.add_argument("-tds", "--train_shared_pth", help="Enter train_shared data path", type=str)
-    parser.add_argument("-vd", "--val_data_pth", help="Enter val data path", type=str)
-    parser.add_argument("-vds", "--val_shared_pth", help="Enter val_shared data path", type=str)
-    parser.add_argument("-test", "--test_data_pth", help="Enter test data path", type=str)
-    parser.add_argument("-test_shared", "--test_shared_pth", help="Enter test_shared data path", type=str)
-    # parser.add_argument("-album", "--album_data_pth", help="Enter album_json data path", type=str)
-    parser.add_argument("isTrain", help="Set True if model is training", type=bool)
+    # parser.add_argument("-td" , "--train_data_pth", help="Enter train data path", type=str)
+    # parser.add_argument("-tds", "--train_shared_pth", help="Enter train_shared data path", type=str)
+    # parser.add_argument("-vd", "--val_data_pth", help="Enter val data path", type=str)
+    # parser.add_argument("-vds", "--val_shared_pth", help="Enter val_shared data path", type=str)
+    # parser.add_argument("-test", "--test_data_pth", help="Enter test data path", type=str)
+    # parser.add_argument("-test_shared", "--test_shared_pth", help="Enter test_shared data path", type=str)
+    # # parser.add_argument("-album", "--album_data_pth", help="Enter album_json data path", type=str)
+    # parser.add_argument("isTrain", help="Set True if model is training", type=bool)
     
-    args = parser.parse_args()
+    # args = parser.parse_args()
     
-    main(args.train_data_pth,
-        args.train_shared_pth,
-        args.val_data_pth,
-        args.val_shared_pth,
-        args.test_data_pth,
-        args.test_shared_pth,
-        isTrain = args.isTrain)
+    # main(args.train_data_pth,
+    #     args.train_shared_pth,
+    #     args.val_data_pth,
+    #     args.val_shared_pth,
+    #     args.test_data_pth,
+    #     args.test_shared_pth,
+    #     isTrain = args.isTrain)

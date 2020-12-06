@@ -28,34 +28,45 @@ ALBUM_TITLE_THRES = int(np.percentile(album_title_lens, 90)) # 8
 ALBUM_DESC_THRES = int(np.percentile(album_desc_lens, 50)) # 11
 
 def train_collate(batch):
-    print("batch type: ", type(batch))
-    print("batch: ", batch[0])
     X, Y = zip(*batch)
-
-    print("X: ", type(X[0]), type(X[1]))
     q_vec = []
     cs_vec = []
     desc_vec = []
     img_feats = []
     q_len = []
-    cs_len = []
+    cs0_len = []
+    cs1_len = []
+    cs2_len = []
+    cs3_len = []
     desc_len = []
     img_len = []
+    new_X = {}
     for x in X:
-      q_len.append(torch.LongTensor([len(x['q_len']) for x in X])
-      cs_len.append(torch.LongTensor([len(x['cs_lens']) for x in X])
-      desc_len.append(torch.LongTensor([len(x['desc_len']) for x in X])
-      img_len.append(torch.LongTensor([len(x['img_len']) for x in X])
+      q_len.append(x['q_len'])
+      cs0_len.append(x['cs_lens'][0])
+      cs1_len.append(x['cs_lens'][1])
+      cs2_len.append(x['cs_lens'][2])
+      cs3_len.append(x['cs_lens'][3])
+      desc_len.append(x['desc_len'])
+      img_len.append(x['img_len'])
       q_vec.append(x['q_vec'])
       cs_vec.append(x['cs_vec'])
       desc_vec.append(x['desc_vec'])
       img_feats.append(x['img_feats'])
 
-    X['q_vec'] = pad_sequence(q_vec, batch_first=False, padding_value=0).to(self.device)  # question 
-    X['cs_vec'] = pad_sequence(cs_vec.permute(0,2,1,3), batch_first = False, padding_value=0).to(self.device) # 4 choices T, B, 4, 100
-    X['desc_vec'] = pad_sequence(desc_vec, batch_first=False, padding_value=0).to(self.device) 
-    X['img_feats'] = pad_sequence(img_feats, batch_first=False, padding_value=0).to(self.device)
-    return X, Y
+    new_X['q_len'] = torch.LongTensor(q_len)
+    new_X['cs0_lens'] = torch.LongTensor(cs0_len)
+    new_X['cs1_lens'] = torch.LongTensor(cs1_len)
+    new_X['cs2_lens'] = torch.LongTensor(cs2_len)
+    new_X['cs3_lens'] = torch.LongTensor(cs3_len)
+    new_X['desc_len'] = torch.LongTensor(desc_len)
+    new_X['img_len'] = torch.LongTensor(img_len)
+    new_X['q_vec'] = pad_sequence(q_vec, batch_first=False, padding_value=0)  # question 
+    new_X['cs_vec'] = pad_sequence(cs_vec, batch_first=False, padding_value=0) # B, Y_THRES, 4, 100 -> 4 choices T, B, 4, 100 
+    new_X['desc_vec'] = pad_sequence(desc_vec, batch_first=False, padding_value=0)
+    new_X['img_feats'] = pad_sequence(img_feats, batch_first=False, padding_value=0)
+
+    return new_X, torch.LongTensor(Y)
 
 class MemexQA_new(Dataset):
     def __init__(self, data, shared):
@@ -75,7 +86,8 @@ class MemexQA_new(Dataset):
         q_vec = torch.FloatTensor(
             [self.shared['word2vec'][word.lower()] if word.lower() in self.shared['word2vec'] else [0] * 100 for word in
              q])
-        returned_item['q_vec'] = q_vec[:Q_THRES]  # largest possible shape: Q_THRES * 100
+        q_vec = q_vec[:Q_THRES]
+        returned_item['q_vec'] = q_vec  # largest possible shape: Q_THRES * 100
         returned_item['q_len'] = q_vec.shape[0] 
         # choices glove
         wrong_cs = self.data['cs'][idx]
@@ -95,7 +107,7 @@ class MemexQA_new(Dataset):
              c] for c in cs]
         cs_vec = [torch.FloatTensor(c[:Y_THRES]) for c in cs_vec]
         cs_lens = [min(Y_THRES, len(each)) for each in cs_vec] #YTHRES
-        returned_item['cs_vec'] = cs_vec  # [c1, c2, c3, c4]; largest possible shape: 4, Y_THRES, 100
+        returned_item['cs_vec'] = pad_sequence(cs_vec, batch_first = True).permute(0,1,2)  # [c1, c2, c3, c4]; largest possible shape: 4, Y_THRES, 100 ->  Y_THRES, 4, 100 -> collate_fn: N, Y_THRES, 4, 100
         returned_item['cs_lens'] = cs_lens
 
         # aid: description + title , aid:when , aid : photo_titles + {later ->( photo_captions  + photo tags )}
