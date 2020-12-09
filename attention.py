@@ -59,13 +59,13 @@ class AttentionModel(nn.Module):
         desc_vec = X['desc_vec']
         img_feats = X['img_feats']
 
-        packed_q_vec = pack_padded_sequence(q_vec, X['q_len'], batch_first=False, enforce_sorted = False)
-        packed_c0_vec = pack_padded_sequence(cs_vec[:, :, 0, :], X['cs0_lens'], batch_first = False, enforce_sorted = False)
-        packed_c1_vec = pack_padded_sequence(cs_vec[:, :, 1, :], X['cs1_lens'], batch_first = False, enforce_sorted = False)
-        packed_c2_vec = pack_padded_sequence(cs_vec[:, :, 2, :], X['cs2_lens'], batch_first = False, enforce_sorted = False)
-        packed_c3_vec = pack_padded_sequence(cs_vec[:, :, 3, :], X['cs3_lens'], batch_first = False, enforce_sorted = False)
-        packed_pt_vec = pack_padded_sequence(desc_vec, X['desc_len'], batch_first = False, enforce_sorted = False)
-        packed_img_vec = pack_padded_sequence(img_feats, X['img_len'], batch_first = False, enforce_sorted = False)
+        packed_q_vec = pack_padded_sequence(q_vec, X['q_len'], batch_first=False, enforce_sorted = False).to(self.device)
+        packed_c0_vec = pack_padded_sequence(cs_vec[:, :, 0, :], X['cs0_lens'], batch_first = False, enforce_sorted = False).to(self.device)
+        packed_c1_vec = pack_padded_sequence(cs_vec[:, :, 1, :], X['cs1_lens'], batch_first = False, enforce_sorted = False).to(self.device)
+        packed_c2_vec = pack_padded_sequence(cs_vec[:, :, 2, :], X['cs2_lens'], batch_first = False, enforce_sorted = False).to(self.device)
+        packed_c3_vec = pack_padded_sequence(cs_vec[:, :, 3, :], X['cs3_lens'], batch_first = False, enforce_sorted = False).to(self.device)
+        packed_pt_vec = pack_padded_sequence(desc_vec, X['desc_len'], batch_first = False, enforce_sorted = False).to(self.device)
+        packed_img_vec = pack_padded_sequence(img_feats, X['img_len'], batch_first = False, enforce_sorted = False).to(self.device)
         q_out,_   = self.rnn_q(packed_q_vec)  # M X B X 2d
         c0_out,_  = self.rnn_c(packed_c0_vec) # T X B X 2d
         c1_out,_  = self.rnn_c(packed_c1_vec) # T X B X 2d
@@ -147,15 +147,15 @@ class AttentionModel(nn.Module):
         max4 shape:  torch.Size([3, 9, 2])
         max3 shape:  torch.Size([3, 9])
                 '''
-        A = self.softmax1(max1)  # B X T x 2
-        B = self.softmax1(max2)   # B X 2
-        D = self.softmax1(max4)   # B x M
+        A = self.softmax1(max1).to(self.device)  # B X T x 2
+        B = self.softmax1(max2).to(self.device)   # B X 2
+        D = self.softmax1(max4).to(self.device)   # B x M
       
-        h_tilda = torch.zeros((F.shape[0], F.shape[-1])).float() # B x 2d
-        q_tilda = torch.zeros((F.shape[0], F.shape[-1])).float() # B x 2d
+        h_tilda = torch.zeros((F.shape[0], F.shape[-1])).float().to(self.device) # B x 2d
+        q_tilda = torch.zeros((F.shape[0], F.shape[-1])).float().to(self.device) # B x 2d
        
         for k in range(2):
-            temp = torch.zeros((F.shape[0], F.shape[-1])).float()
+            temp = torch.zeros((F.shape[0], F.shape[-1])).float().to(self.device)
             for t in range(A.shape[1]):
                 # print("A shape: ", A[:,t, k].unsqueeze(1).repeat(1, F.shape[-1]).shape, " , F[:, t, k, :] shape: ",  F[:, t, k, :].shape )
                 temp += A[:,t, k].unsqueeze(1).repeat(1, F.shape[-1]) *  F[:, t, k, :]# B x 2d
