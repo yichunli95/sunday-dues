@@ -1,9 +1,10 @@
 ## Tackle Multimodal QA with Multi-Stage Information Fusion
+**Team Name: sunday-dues**
+**Authors: Yichun Li, Hongyuan Zhang, Aditi Tripathi**
 ## Abstract 
 Multimodal question answering has wide applications in real life, for example, intelligent voice assistants. In this paper, we propose a novel approach to a less explored task within the realm of multimedia question answering: MemexQA, in which a large number of photos from multiple personal albums, as well as related metadata are given to answer a multiple-choice question. Our approach features a multi-stage fusion process of multimodal information, which consists of dynamic parameter prediction and multimodal convolution. We achieved results that reflected both strengths and weaknesses of the proposed novel solution.
-*Team Name: sunday-dues*
-*Authors: Yichun Li, Hongyuan Zhang, Aditi Tripathi*
-*Dataset: MemexQA Dataset*
+
+**Dataset: MemexQA Dataset**
 [MemexQA Dataset](https://memexqa.cs.cmu.edu)
 
 ## Models
