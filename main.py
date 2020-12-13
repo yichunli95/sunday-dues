@@ -1,7 +1,7 @@
 import torch.optim as optim
 import torch.nn as nn
 import torch
-from new_dataset_checked_by_hongyuan import MemexQA_new
+from new_dataset_checked_by_hongyuan import MemexQA_new, train_collate
 import pandas as pd
 from model import LinearModel, SimpleLSTMModel, NewFusionModel
 import time
@@ -185,3 +185,5 @@ if __name__ == '__main__':
     #     args.test_data_pth,
     #     args.test_shared_pth,
     #     isTrain = args.isTrain)
+
+
