@@ -9,28 +9,28 @@ Multimodal question answering has wide applications in real life, for example, i
 ## Models
 ### Fusion model
 ![Fusion Model Diagram](images/fusion.png)
-EPOCHS = 10
-BATCH_SIZE = 64
-MOMENTUM = 1e-2
-LR = 1e-2
-LR_STEPSIZE = 3
-LR_DECAY = 0.85
+EPOCHS = 10,
+BATCH_SIZE = 64,
+MOMENTUM = 1e-2,
+LR = 1e-2,
+LR_STEPSIZE = 3,
+LR_DECAY = 0.85,
 WD = 5e-6
 ### Attention model
 ![Attention Model Diagram](images/attention.png)
-EPOCHS = 80
-BATCH_SIZE = 64
-HIDDEN_SIZE = 512
-NUM_LAYERS = 3
-KERNEL = 5
-STRIDE = 1
-DROPOUT = 0.4
-#MOMENTUM = 1e-2
-LR = 0.32
-WD = 5e-5
-FACTOR = 0.95
-PATIENCE = 3
-THRESHOLD = 0.01 
+EPOCHS = 80,
+BATCH_SIZE = 64,
+HIDDEN_SIZE = 512,
+NUM_LAYERS = 3,
+KERNEL = 5,
+STRIDE = 1,
+DROPOUT = 0.4,
+#MOMENTUM = 1e-2,
+LR = 0.32,
+WD = 5e-5,
+FACTOR = 0.95,
+PATIENCE = 3,
+THRESHOLD = 0.01
 
 ### Baselines
 ![Baseline-Linear](images/baseline1.png)
