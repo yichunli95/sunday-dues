@@ -1,5 +1,6 @@
 ## Tackle Multimodal QA with Multi-Stage Information Fusion
 **Team Name: sunday-dues**
+
 **Authors: Yichun Li, Hongyuan Zhang, Aditi Tripathi**
 
 ## Running Instructions
