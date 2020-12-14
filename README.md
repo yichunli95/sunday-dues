@@ -3,7 +3,7 @@
 **Authors: Yichun Li, Hongyuan Zhang, Aditi Tripathi**
 
 ## Running Instructions
-Run fusion_model.ipynb for our proposed new model, baselines.ipynb for two baseline models, attention.ipynb for attention model.
+Run fusion_model.ipynb for our proposed new model, baselines.ipynb for two baseline models, attention.ipynb for attention model. Leave the hyperparameters as they are in the code files.
 
 ## Abstract 
 Multimodal question answering has wide applications in real life, for example, intelligent voice assistants. In this paper, we propose a novel approach to a less explored task within the realm of multimedia question answering: MemexQA, in which a large number of photos from multiple personal albums, as well as related metadata are given to answer a multiple-choice question. Our approach features a multi-stage fusion process of multimodal information, which consists of dynamic parameter prediction and multimodal convolution. We achieved results that reflected both strengths and weaknesses of the proposed novel solution.
